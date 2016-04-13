@@ -1,0 +1,32 @@
+##Design Decisions
+
+- The "meta" game properties of the data models, such as user registration and
+info and score-keeping, are very similar to the "Guess a Number" sample. The
+only major change I made was to institute a hierarchy such that User is an
+ndb ancestor of Game, and Game is an ancestor of the Score model. A
+more interesting challenge of this project was figuring out how to model the
+playing board in way that only provides the User a view of the current state of
+the board, while still exposing the full solution to the backend API for
+processing make_move() and get_history() requests. I did this by adding an
+optional "hide_solution" parameter to the Game to_form() method and cloning
+the board object and then removing the each card's "value" property before
+sending it back in its GameForm container. This was actually the last major
+aspect of the game that I implemented, as I found it useful to keep the full
+board solution exposed to all the endpoints that respond with GameForm containers
+for debugging purposes. For that reason as well, I allow game sizes as small as
+a single pair of cards (even though at that point you're not really using your
+memory to win). Single-match games will provide an easy way to debug when
+implementing a front end for the Memory Game API.
+
+- I started off building this as a multi-player memory game, thinking I might
+use push queues for turn notifications. However, the more I tried to think
+through the actual game scenario, I came to realize that Memory is not a game
+that would work well asynchronously, where the players are taking turns at
+different times, days and intervals. The Memory game requires players to
+exercize their short-term memory by recalling the recent history of moves
+(card guesses) by all players. Thus I would need to either enforce that all
+players are playing at the same time (e.g., by instituting a turn timer system
+and a real-time turn notification system) or keep the implementation simple by
+restricting play to a single-player. I chose the latter for simplicity, but
+would like to expand this in the future to a multi-player system and also add
+a front end.
