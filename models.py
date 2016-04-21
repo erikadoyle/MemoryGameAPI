@@ -3,7 +3,8 @@ import random
 from datetime import date
 from protorpc import messages
 from google.appengine.ext import ndb
-
+from google.appengine.api import taskqueue
+from utils import check_complete
 
 class User(ndb.Model):
     """User profile"""
@@ -48,7 +49,7 @@ class Game(ndb.Model):
     user = ndb.KeyProperty(kind='User')
     score = ndb.IntegerProperty(default=0)
     history = ndb.PickleProperty(required=True)
-    size = ndb.IntegerProperty(default=4)
+    size = ndb.IntegerProperty(required=True)
 
     @classmethod
     def new_game(cls, size, user):
@@ -85,6 +86,44 @@ class Game(ndb.Model):
         game.put()
         return game
 
+    def make_move(self, card1, card2):
+        # Verify selected card exists
+        card_count = len(self.board)
+        if card1 < 0 or \
+           card1 >= card_count or \
+           card2 < 0 or \
+           card2 >= card_count:
+            raise ValueError('Invalid move! Selected cards must be 0 or greater'
+                             ' and less than {}'.format(card_count))
+
+        # Verify selected cards are still available
+        if self.board[card1]["cleared"] or \
+           self.board[card2]["cleared"]:
+            raise ValueError('Invalid move! One or both cards are not available.')
+
+        # Check if there is a match
+        if self.board[card1]["value"] == self.board[card2]["value"]:
+            self.board[card1]["cleared"] = self.board[card2]["cleared"] = True
+            self.tally_match()
+
+        # Append a move to the history
+        move = (card1, card2)
+        self.history.append(move)
+
+        # Check if the game is won
+        complete = check_complete(self.board)
+        if complete:
+            self.end_game()
+
+            # Send congratulations mail with total score
+            taskqueue.add(url='/tasks/send_congrats_email',
+                          params={'user_key': self.user.urlsafe(),
+                                  'game_key': self.key.urlsafe()})
+
+        # Report the card values and current board state
+        else:
+            self.put()
+
     def to_form(self, hide_solution=True, card1=None, card2=None):
         """Returns a GameForm representation of the Game."""
         board = self.board
@@ -93,7 +132,7 @@ class Game(ndb.Model):
             board = list(self.board)
             index = 0
             for card in board:
-                # Only show the values of the chosen cards if a move is being made
+                # Only show the values of the chosen cards if a move is made
                 if card1 != index and card2 != index:
                     card.pop("value")
                 index += 1
@@ -165,7 +204,7 @@ class GameForms(messages.Message):
 
 class NewGameForm(messages.Message):
     """Used to create a new game"""
-    size = messages.IntegerField(1, required=True)
+    size = messages.IntegerField(1, default=4)
     user = messages.StringField(2, required=True)
 
 

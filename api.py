@@ -2,12 +2,11 @@ import endpoints
 from protorpc import remote, messages
 from google.appengine.api import memcache
 from google.appengine.ext import ndb
-from google.appengine.api import taskqueue
 
 from models import User, Game, Score, GameState
 from models import StringMessage, NewGameForm, GameForm, MakeMoveForm,\
     ScoreForms, GameForms, UserForm, UserForms
-from utils import get_by_urlsafe, check_complete
+from utils import get_by_urlsafe
 
 NEW_GAME_REQUEST = endpoints.ResourceContainer(NewGameForm)
 GET_GAME_REQUEST = endpoints.ResourceContainer(
@@ -64,6 +63,9 @@ class MemoryGameAPI(remote.Service):
         if request.size < 1:
             raise endpoints.BadRequestException(
                 'Board size must be greater than zero.')
+        elif request.size > 500:
+            raise endpoints.BadRequestException(
+                'Board size must be 500 or less.')
         user = User.query(User.name == request.user).get()
         if not user:
             raise endpoints.NotFoundException(
@@ -113,9 +115,9 @@ class MemoryGameAPI(remote.Service):
 
     @endpoints.method(request_message=GET_GAME_REQUEST,
                       response_message=StringMessage,
-                      path='game/{urlsafe_game_key}',
+                      path='game/{urlsafe_game_key}/cancel',
                       name='cancel_game',
-                      http_method='POST')
+                      http_method='PUT')
     def cancel_game(self, request):
         """Cancels a game. Only active games can be cancelled."""
         game = get_by_urlsafe(request.urlsafe_game_key, Game)
@@ -142,44 +144,11 @@ class MemoryGameAPI(remote.Service):
             raise endpoints.NotFoundException('Game already over')
 
         card1, card2 = request.card1, request.card2
-
-        # Verify selected card exists
-        card_count = len(game.board)
-        if card1 < 0 or \
-           card1 >= card_count or \
-           card2 < 0 or \
-           card2 >= card_count:
-            raise endpoints.BadRequestException('Invalid move! Selected'
-                                                ' cards must be between'
-                                                ' 0 and {}'.format(card_count))
-        # Verify selected cards are still available
-        if game.board[card1]["cleared"] or \
-           game.board[card2]["cleared"]:
-            raise endpoints.BadRequestException('Invalid move! One or both'
-                                                ' cards are not available.')
-
-        # Check if there is a match
-        if game.board[card1]["value"] == game.board[card2]["value"]:
-            game.board[card1]["cleared"] = game.board[card2]["cleared"] = True
-            game.tally_match()
-
-        # Append a move to the history
-        move = (card1, card2)
-        game.history.append(move)
-
-        # Check if the game is won
-        complete = check_complete(game.board)
-        if complete:
-            game.end_game()
-
-            # Send congratulations mail with total score
-            taskqueue.add(url='/tasks/send_congrats_email',
-                          params={'user_key': game.user.urlsafe(),
-                                  'game_key': game.key.urlsafe()})
-        # Report the card values and current board state
-        else:
-            game.put()
-        return game.to_form(card1=card1, card2=card2)
+        try:
+            game.make_move(card1, card2)
+            return game.to_form(card1=card1, card2=card2)
+        except ValueError as error:
+            raise endpoints.BadRequestException(error.message)
 
     @endpoints.method(request_message=GET_GAME_REQUEST,
                       response_message=StringMessage,

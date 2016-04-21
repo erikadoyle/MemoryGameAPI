@@ -17,10 +17,8 @@
 import logging
 import webapp2
 from google.appengine.api import mail, app_identity
-from google.appengine.ext import ndb
 from api import MemoryGameAPI
 from utils import get_by_urlsafe
-
 from models import User, Game, GameState
 
 

@@ -1,8 +1,8 @@
 cron:
 - description: Send a challenge email to users with below average scores
   url: /crons/send_challenge
-  schedule: every 1 minutes
+  schedule: every 1 days
 
 - description: Calculate the average score across all players
   url: /crons/cache_average_score
-  schedule: every 1 minutes
+  schedule: every 2 hours
