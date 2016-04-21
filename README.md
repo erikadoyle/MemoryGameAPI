@@ -1,6 +1,6 @@
 # Memory Game API
 
-Memory, or [Concentration](https://en.wikipedia.org/wiki/Concentration_(game),
+Memory, or [Concentration](https://en.wikipedia.org/wiki/Concentration_(game)),
 is a simple game consisting of a deck of card pairs. The cards are placed
 face-down on the table, and the player inspects the card values, two at a time,
 looking for matches. After each turn the cards are again placed face-down,
@@ -128,13 +128,12 @@ To interact with the API directly:
     - Description: Returns the rankings of all players that have played at least one game by their
     lifetime score.
 
-  - **get_high_scores**
-     - Path: 'scores/highest'
-     - Method: GET
-     - Parameters: results (optional)
-     - Returns: ScoreForms
-     - Description: Returns the rankings from the top N games (player/score) in descending order.
-       If 'N' (results) is not specified, returns the top three game scores.
+ - **get_high_scores**
+    - Path: 'scores/highest'
+    - Method: GET
+    - Parameters: results (optional)
+    - Returns: ScoreForms
+    - Description: Returns the rankings from the top N games (player/score) in descending order. If 'N' (results) is not specified, returns the top three game scores.
 
  - **get_game_history**
     - Path: 'game/{urlsafe_game_key}'
